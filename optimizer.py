@@ -41,27 +41,39 @@ class AdamW(Optimizer):
 
                 # State should be stored in this dictionary.
                 state = self.state[p]
-
+                # si c'est la première fois que on lance, il faut donc initier:
+                if len(state) == 0:
+                    state["step"] = 0
+                    state["m_t"] =  torch.zeros_like(p.data)
+                    state["v_t"] = torch.zeros_like(p.data)
+                    
+                    
                 # Access hyperparameters from the `group` dictionary.
                 alpha = group["lr"]
+                # beta hyperparameters from the `group` dictionary.
+                betas = group["betas"]
+                beta_1 = betas[0]
+                beta_2 = betas[1]
+                
+                ### Apply bias correction
+                ###(using the "efficient version" given in https://arxiv.org/abs/1412.6980;
+                state["step"]+= 1
+                t = state["step"]
+                m_t = state["m_t"]
+                v_t = state["v_t"]
 
-
-                ### TODO: Complete the implementation of AdamW here, reading and saving
-                ###       your state in the `state` dictionary above.
-                ###       The hyperparameters can be read from the `group` dictionary
-                ###       (they are lr, betas, eps, weight_decay, as saved in the constructor).
-                ###
-                ###       To complete this implementation:
-                ###       1. Update the first and second moments of the gradients.
-                ###       2. Apply bias correction
-                ###          (using the "efficient version" given in https://arxiv.org/abs/1412.6980;
-                ###          also given in the pseudo-code in the project description).
-                ###       3. Update parameters (p.data).
-                ###       4. Apply weight decay after the main gradient-based updates.
-                ###
-                ###       Refer to the default project handout for more details.
-                ### YOUR CODE HERE
-                raise NotImplementedError
+                m_t = beta_1 * m_t + (1-beta_1)*grad
+                v_t = beta_2 * v_t + (1-beta_2)*grad**2
+                state["m_t"] = m_t
+                state["v_t"] = v_t
+                if group["correct_bias"]:
+                    m_hat = m_t / (1-beta_1**t)
+                    v_hat = v_t / (1-beta_2**t)
+                else:
+                    m_hat = m_t
+                    v_hat = v_t
+                p.data = p.data - alpha*m_hat/(torch.sqrt(v_hat)+group["eps"])
+                p.data = p.data - alpha*group["weight_decay"]*p.data
 
 
         return loss
