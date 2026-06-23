@@ -32,9 +32,22 @@ class CausalSelfAttention(nn.Module):
     return proj
 
   def attention(self, key, query, value, attention_mask):
-
-    ### YOUR CODE HERE
-    raise NotImplementedError
+    ## formule utilisée:
+    ##
+    ## attention(Q,K,V) = softmax(Q@K.T/sqrt(dk))@V 
+    ##
+    # attention_mask sert à empêcher les tokens futurs d’obtenir du poids après le softmax.
+    score = (query @ rearrange(key, 'b h t d -> b h d t')) / (key.shape[3] ** 0.5)
+    score = score + attention_mask
+    ## socre dimension est actuellement: [batch, head, token_actuel, token_regardé]
+    score = torch.softmax(score, dim=-1)
+    ## dropout après l attention ##
+    score = self.dropout(score)
+    score = score @ value ## dim=-1 permet de prendre toute les valeurs du tableau score de la dernière dimension
+    score = rearrange(score, 'b h t d -> b t h d')
+    score = rearrange(score, 'b t h d -> b t (h d)')
+    return score
+    
 
 
   def forward(self, hidden_states, attention_mask):
