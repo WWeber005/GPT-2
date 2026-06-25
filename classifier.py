@@ -59,12 +59,10 @@ class GPT2SentimentClassifier(torch.nn.Module):
 
   def forward(self, input_ids, attention_mask):
     '''Takes a batch of sentences and returns logits for sentiment classes'''
-
-    ### TODO: The final GPT contextualized embedding is the hidden state of the last token.
-    ###       HINT: You should consider what is an appropriate return value given that
-    ###       the training loop currently uses F.cross_entropy as the loss function.
-    ### YOUR CODE HERE
-    raise NotImplementedError
+    dic = self.gpt.forward(input_ids,attention_mask)  ## return {'last_hidden_state': sequence_output, 'last_token': last_token}
+    out = self.dropout(dic['last_token'])
+    res = self.classifier(out)
+    return res
 
 
 
