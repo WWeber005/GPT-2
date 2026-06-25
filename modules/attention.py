@@ -36,8 +36,18 @@ class CausalSelfAttention(nn.Module):
     ##
     ## attention(Q,K,V) = softmax(Q@K.T/sqrt(dk))@V 
     ##
-    # attention_mask sert à empêcher les tokens futurs d’obtenir du poids après le softmax.
+    
     score = (query @ rearrange(key, 'b h t d -> b h d t')) / (key.shape[3] ** 0.5)
+
+    ## apppliquer un causal mask pour éviter de regarder le future afin de prédire le prochain mot !!
+    seq_len = score.size(-1)
+    causal_mask = torch.tril(torch.ones((seq_len, seq_len), device=score.device))
+    causal_mask = causal_mask.view(1, 1, seq_len, seq_len)
+    score = score.masked_fill(causal_mask == 0, -10000.0)
+
+    ## attention_mask sert a ignorer les mot qui ont été ajouter pour completer la longueur de la phrase étudiée ( PADDING )
+    #print(attention_mask)
+    #print(f"shape de la matrice d attention {attention_mask.shape}")
     score = score + attention_mask
     ## socre dimension est actuellement: [batch, head, token_actuel, token_regardé]
     score = torch.softmax(score, dim=-1)

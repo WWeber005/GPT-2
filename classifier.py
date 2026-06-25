@@ -53,9 +53,8 @@ class GPT2SentimentClassifier(torch.nn.Module):
       elif config.fine_tune_mode == 'full-model':
         param.requires_grad = True
 
-    ### TODO: Create any instance variables you need to classify the sentiment of BERT embeddings.
-    ### YOUR CODE HERE
-    raise NotImplementedError
+    self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
+    self.classifier = torch.nn.Linear(config.hidden_size, self.num_labels)
 
 
   def forward(self, input_ids, attention_mask):
