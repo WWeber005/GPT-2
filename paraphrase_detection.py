@@ -32,7 +32,16 @@ from models.gpt2 import GPT2Model
 
 from optimizer import AdamW
 
+
 TQDM_DISABLE = False
+
+# Utility function for device selection
+def get_device(use_gpu):
+  if use_gpu and torch.cuda.is_available():
+    return torch.device('cuda')
+  if use_gpu and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    return torch.device('mps')
+  return torch.device('cpu')
 
 # Fix the random seed.
 def seed_everything(seed=11711):
@@ -55,7 +64,7 @@ class ParaphraseGPT(nn.Module):
 
     # By default, fine-tune the full model.
     for param in self.gpt.parameters():
-      param.requires_grad = True
+      param.requires_grad = False # True for training all the model
 
   def forward(self, input_ids, attention_mask):
     """
@@ -72,8 +81,18 @@ class ParaphraseGPT(nn.Module):
 
     'Takes a batch of sentences and produces embeddings for them.'
     ### YOUR CODE HERE
-    raise NotImplementedError
+    dic = self.gpt.forward(input_ids,attention_mask)
+    scores = self.paraphrase_detection_head(dic['last_token'])
+    
 
+    batch_size = scores.shape[0]
+
+    vocab_size = self.gpt.config.vocab_size # taille du vocabulaire GPT-2
+
+    logits = torch.full((batch_size, vocab_size),-1e9,device=scores.device)
+    logits[:, 3919] = scores[:, 0]  # "no"
+    logits[:, 8505] = scores[:, 1]  # "yes"
+    return logits
 
 
 def save_model(model, optimizer, args, filepath):
@@ -92,7 +111,7 @@ def save_model(model, optimizer, args, filepath):
 
 def train(args):
   """Train GPT-2 for paraphrase detection on the Quora dataset."""
-  device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+  device = get_device(args.use_gpu)
   # Create the data and its corresponding datasets and dataloader.
   para_train_data = load_paraphrase_data(args.para_train)
   para_dev_data = load_paraphrase_data(args.para_dev)
@@ -150,7 +169,7 @@ def train(args):
 @torch.no_grad()
 def test(args):
   """Evaluate your model on the dev and test datasets; save the predictions to disk."""
-  device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+  device = get_device(args.use_gpu)
   saved = torch.load(args.filepath)
 
   model = ParaphraseGPT(saved['args'])
