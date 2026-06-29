@@ -29,6 +29,12 @@ from optimizer import AdamW
 
 TQDM_DISABLE = False
 
+def get_device(use_gpu):
+  if use_gpu and torch.cuda.is_available():
+    return torch.device('cuda')
+  if use_gpu and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    return torch.device('mps')
+  return torch.device('cpu')
 
 # Fix the random seed.
 def seed_everything(seed=11711):
@@ -60,8 +66,10 @@ class SonnetGPT(nn.Module):
     not just the last token! This will allow our model to learn the natural language distribution that composes sonnets,
     not just the distribution over next tokens for the last token!
     """
-    ### YOUR CODE HERE
-    raise NotImplementedError
+    dic = self.gpt.forward(input_ids,attention_mask)
+    logits = self.gpt.hidden_state_to_token(dic["last_hidden_state"])
+    return logits
+
 
 
   def get_device(self):
@@ -132,7 +140,7 @@ def save_model(model, optimizer, args, filepath):
 
 def train(args):
   """Train GPT-2 for sonnet generation on the Quora dataset."""
-  device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+  device = get_device(args.use_gpu)
   # Create the data and its corresponding datasets and dataloader.
   sonnet_dataset = SonnetsDataset(args.sonnet_path)
   sonnet_dataloader = DataLoader(sonnet_dataset, shuffle=True, batch_size=args.batch_size,
@@ -182,6 +190,11 @@ def train(args):
       print(f'{batch[1]}{output[1]}\n\n')
 
     # TODO: consider a stopping condition to prevent overfitting on the small dataset of sonnets.
+    if epoch >= 2:
+      print("Stopping early to avoid overfitting on the small sonnet dataset.")
+      save_model(model, optimizer, args, f'{epoch}_{args.filepath}')
+      break
+
     save_model(model, optimizer, args, f'{epoch}_{args.filepath}')
 
 
